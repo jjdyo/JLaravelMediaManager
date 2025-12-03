@@ -1,114 +1,115 @@
-# Media Manager (in‑repo module)
+# J Laravel Media Manager
 
-This folder captures a self‑contained snapshot of the in‑repo Media Manager implementation so you can:
-- Understand what files are involved (backend + frontend)
-- Copy/extract them to other apps or into a dedicated package later
-- Follow installation and integration guides without hunting through the repo
+Laravel media library with a Vue 3 picker modal, upload with duplicate detection, directory browsing, and safe thumbnailing. Designed to be installed via Composer and integrated into your existing Laravel app.
 
-The live, working code remains in the application under `app/`, `config/`, `resources/`, etc. This folder mirrors those files under `MediaManager/files/**` for convenience and long‑term documentation.
+## Requirements
+- PHP: ^8.1
+- Laravel: ^10 | ^11 | ^12
+- Intervention Image: ^2.7 | ^3.0
+- Optional: spatie/laravel-permission (if you want role-based directory access)
 
-## Features (Snapshot)
-- Configurable directories (roots with labels) + dynamic subfolder scanning
-- Role‑guarded access per root (Spatie roles; configurable on/off)
-- Uploads with SHA‑256 duplicate detection and decision UX (currently supports "Use existing")
-- Memory‑aware thumbnailing for raster images with safety limits (64px, 256px JPEG)
-- Explicit logging: dedupe hits, thumbnail preflight estimates, threshold/risk‑based skips, success timings
-- Folder creation with sanitized names and enforced nesting depth
-- Vue 3 modal picker with Folder/All tabs, search (name/type), pagination, per‑page selector, upload with CSRF, duplicate handling
-
-## File map (where these live in the app)
-
-Backend
-- `config/media-manager.php`
-- `database/migrations/2025_12_03_000100_create_media_table.php`
-- `app/Models/Media.php`
-- `app/Http/Controllers/MediaController.php`
-- `app/Http/Requests/Media/ListMediaRequest.php`
-- `app/Http/Requests/Media/StoreMediaRequest.php`
-- `app/Services/MediaManager/HumanFileSize.php`
-- `app/Services/MediaManager/MediaDirectoryScanner.php`
-- Routes (see `routes/web.php`):
-  - GET `/media`, GET `/media/directories`, POST `/media`, POST `/media/folders` (all behind `auth`)
-
-Frontend
-- `resources/js/composables/useMediaApi.ts`
-- `resources/js/components/media/MediaPicker.vue`
-- `resources/js/components/media/MediaGrid.vue`
-
-This folder includes read‑only copies of those files under `MediaManager/files/…` for reference and package extraction.
-
-## Installation (for a fresh app)
-1) Composer dependencies
+## Quick start
+1) Install the package
 ```
-composer require intervention/image spatie/laravel-permission
+composer require jjdyo/j-laravel-media-manager
 ```
 
-2) Environment configuration (see `.env.example` in this folder)
-- Copy the `MEDIA_*` keys into your app `.env`. Example defaults:
+2) Publish assets, config, and migrations (choose any/all tags)
+```
+php artisan vendor:publish --provider="Jjdyo\MediaManager\MediaManagerServiceProvider" --tag=media-manager-config
+php artisan vendor:publish --provider="Jjdyo\MediaManager\MediaManagerServiceProvider" --tag=media-manager-migrations
+php artisan vendor:publish --provider="Jjdyo\MediaManager\MediaManagerServiceProvider" --tag=media-manager-assets
+```
+
+3) Configure environment (optional defaults shown)
+Add to your `.env` (or keep defaults from the config file):
 ```
 MEDIA_MAX_FILE_SIZE=5MB
 MEDIA_ENFORCE_SPATIE=false
 MEDIA_DISK=public
 MEDIA_THUMB_MAX_PIXELS=40000000
-MEDIA_THUMB_MAX_SIZE=20MB
+MEDIA_THUMB_MAX_SIZE=20971520
 ```
 
-3) Publish/enable storage link (if not already)
+4) Prepare storage and database
 ```
 php artisan storage:link
-```
-
-4) Database migration
-```
 php artisan migrate
 ```
 
-5) Routes
-- Ensure the following routes exist under `auth` middleware:
+5) Routes are auto-registered
+This package loads its routes for you (behind `auth`).
+
+6) Frontend build
+- We publish Vue components and a small composable to `resources/js/vendor/media-manager`.
+- Import the components into your app and build with Vite as usual.
+
+Example import and usage:
 ```
-Route::get('/media', [MediaController::class, 'index']);
-Route::get('/media/directories', [MediaController::class, 'directories']);
-Route::post('/media', [MediaController::class, 'store']);
-Route::post('/media/folders', [MediaController::class, 'createFolder']);
+// In a Vue page/component
+<script setup lang="ts">
+import MediaPicker from '@/vendor/media-manager/components/media/MediaPicker.vue'
+function onMediaSelected(m) { /* save m.path, preview m.thumbnails_urls?.['256'] */ }
+</script>
+
+<template>
+  <MediaPicker :context-dir="'trainers'" @select="onMediaSelected" />
+  <!-- Ensure your layout includes: <meta name="csrf-token" content="{{ csrf_token() }}"> -->
+  <!-- Access URLs: Storage::disk('public')->url($path) -->
+</template>
 ```
 
-6) Frontend CSRF meta tag
-- Your base layout must include the Laravel CSRF meta tag so uploads succeed:
+## What you get
+- Configurable directories (roots with labels) + dynamic subfolder scanning
+- Optional role-guarded access per root (Spatie roles)
+- Uploads with SHA‑256 duplicate detection (offers "use existing")
+- Memory‑aware thumbnailing with safety limits (64px, 256px JPEG)
+- Logs: dedupe hits, thumbnail preflight estimates, risk‑based skips, timings
+- Folder creation with sanitized names and enforced nesting depth
+- Vue 3 modal picker with Folder/All tabs, search, pagination, per‑page selector, upload with CSRF, duplicate handling
+
+## Configuration
+File: `config/media-manager.php` (after publish)
+- `max_file_size` (e.g., `500KB`, `5MB`, `1GB`)
+- `allowed_directories` (root keys with labels)
+- `scan_depth` and `allowed_folder_nest`
+- `thumbnails` (sizes as `[w,h,quality]`), `thumbnail_max_pixels`, `thumbnail_max_filesize_bytes`
+- `disk`, `visibility`
+- `enforce_spatie_permission` and per-root `permissions`
+
+If you enable Spatie enforcement, only users with configured roles can use a root. Otherwise, any authenticated user can.
+
+## Getting started in your app
+1) Add the CSRF meta tag to your layout so uploads succeed:
 ```
 <meta name="csrf-token" content="{{ csrf_token() }}">
 ```
 
-7) PHP memory limit (recommended for image processing)
-- Set `memory_limit = 256M` (or higher) in your PHP config for reliable thumbnailing of modern phone photos.
-
-## Configuration (`config/media-manager.php`)
-- `max_file_size`: human‑readable limit (e.g., `500KB`, `5MB`, `1GB`).
-- `allowed_directories`: whitelisted roots with labels; subdirs discovered dynamically.
-- `scan_depth`: how deep the scanner explores for subdirectories.
-- `allowed_folder_nest`: how many levels users can create under a root.
-- `thumbnails`: sizes generated (square fit) as JPEG at quality per size.
-- `thumbnail_max_pixels`, `thumbnail_max_filesize_bytes`: soft safety limits to skip thumbnails if too large.
-- `disk`, `visibility`: storage disk and file visibility.
-- `enforce_spatie_permission`, `permissions`: toggle role enforcement and per‑root role lists.
-
-## Usage examples (high level)
-- Vue form button opens the picker modal:
+2) Show the picker and save the selection in a form
 ```
-<MediaPicker :context-dir="'trainers'" @select="onMediaSelected" />
+<MediaPicker :context-dir="'logos'" @select="(m) => form.logo_path = m.path" />
 ```
-- On select, save the relative `path` (e.g., `trainers/avatar.jpg`) in your form and compute URL server‑side via `Storage::disk('public')->url($path)`.
 
-See `USAGE.md` for concrete code examples (Trainer photo + Site logo).
+3) Store the relative path and compute the public URL server-side
+```
+$url = Storage::disk('public')->url($model->logo_path);
+```
 
-## Extracting into a package later
-- Treat `MediaManager/files/**` as your seed. Create a new package (e.g., `BookingHomse/Media`) and move:
-  - Config → publishable config
-  - Migration → publishable migration
-  - Routes → route file within a ServiceProvider
-  - Controllers/Requests/Models/Services → package namespace
-  - Frontend assets → publishable `resources` or a small npm package
+See `USAGE.md` for full end-to-end examples (Trainer photo + Site logo), including validation rules and controller snippets.
+
+## Testing the installation
+Use this quick checklist to verify everything is wired correctly:
+- Visit `/media` authenticated; directories load and pagination works
+- Upload a large phone photo; a 256px thumbnail should appear and logs should show a thumbnail run
+- Try uploading the same file again; you should see a duplicate detection flow
+- Create a folder; name should be sanitized; depth limits respected
+- If `MEDIA_ENFORCE_SPATIE=true`, ensure roles restrict roots as expected
+
+## Frontend paths and Vite aliases
+Assets are published to `resources/js/vendor/media-manager`. If your Vite alias `@` points to `resources/js`, then imports like `@/vendor/media-manager/components/media/MediaPicker.vue` will work. Adjust paths if your alias differs.
 
 ## Support & logging
-- The controller logs rich diagnostics for uploads and thumbnails. See `storage/logs/laravel.log`.
+Check `storage/logs/laravel.log` for detailed upload and thumbnail logs.
 
-If you need additional guidance or want me to automate package scaffolding, say the word and I’ll script it.
+## License
+MIT
