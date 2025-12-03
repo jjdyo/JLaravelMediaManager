@@ -1,6 +1,10 @@
-# J Laravel Media Manager
+# J-Laravel Media Manager
+
+![Media Picker Demo](.github/assets/JLaravelMediaManager.gif)
 
 Laravel media library with a Vue 3 picker modal, upload with duplicate detection, directory browsing, and safe thumbnailing. Designed to be installed via Composer and integrated into your existing Laravel app.
+
+![Picker Interface](.github/assets/JLaravelMediaManagerScreenshot.png)
 
 ## Requirements
 - PHP: ^8.1
