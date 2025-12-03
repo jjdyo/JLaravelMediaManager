@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace app\Http\Controllers;
 
-use App\Http\Requests\Media\ListMediaRequest;
-use App\Http\Requests\Media\StoreMediaRequest;
-use App\Models\Media;
-use App\Services\MediaManager\MediaDirectoryScanner;
+use app\Http\Requests\Media\ListMediaRequest;
+use app\Http\Requests\Media\StoreMediaRequest;
+use app\Models\Media;
+use app\Services\MediaManager\MediaDirectoryScanner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;

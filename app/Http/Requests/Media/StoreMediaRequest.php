@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Http\Requests\Media;
+namespace app\Http\Requests\Media;
 
-use App\Services\MediaManager\HumanFileSize;
+use app\Services\MediaManager\HumanFileSize;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreMediaRequest extends FormRequest

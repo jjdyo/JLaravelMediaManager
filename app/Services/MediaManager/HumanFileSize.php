@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\MediaManager;
+namespace app\Services\MediaManager;
 
 class HumanFileSize
 {
