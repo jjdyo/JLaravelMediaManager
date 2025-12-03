@@ -1,6 +1,6 @@
 <?php
 
-namespace app\Services\MediaManager;
+namespace Jjdyo\MediaManager\Services\MediaManager;
 
 class HumanFileSize
 {

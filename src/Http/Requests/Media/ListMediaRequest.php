@@ -1,6 +1,6 @@
 <?php
 
-namespace app\Http\Requests\Media;
+namespace Jjdyo\MediaManager\Http\Requests\Media;
 
 use Illuminate\Foundation\Http\FormRequest;
 

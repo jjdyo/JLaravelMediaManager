@@ -1,9 +1,10 @@
 <?php
 
-namespace app\Http\Requests\Media;
+namespace Jjdyo\MediaManager\Http\Requests\Media;
 
-use app\Services\MediaManager\HumanFileSize;
 use Illuminate\Foundation\Http\FormRequest;
+use Jjdyo\MediaManager\Services\MediaManager\HumanFileSize;
+use function config;
 
 class StoreMediaRequest extends FormRequest
 {

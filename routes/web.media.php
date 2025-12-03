@@ -1,7 +1,7 @@
 <?php
 
-use app\Http\Controllers\MediaController;
 use Illuminate\Support\Facades\Route;
+use Jjdyo\MediaManager\Http\Controllers\MediaController;
 
 // Example routes for Media Manager (place inside an auth middleware group)
 Route::middleware(['auth'])->group(function () {

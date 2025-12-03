@@ -1,10 +1,11 @@
 <?php
 
-namespace app\Models;
+namespace Jjdyo\MediaManager\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
+use function config;
 
 class Media extends Model
 {

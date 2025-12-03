@@ -1,8 +1,9 @@
 <?php
 
-namespace app\Services\MediaManager;
+namespace Jjdyo\MediaManager\Services\MediaManager;
 
 use Illuminate\Support\Facades\Storage;
+use function config;
 
 class MediaDirectoryScanner
 {

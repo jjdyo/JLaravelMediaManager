@@ -1,11 +1,8 @@
 <?php
 
-namespace app\Http\Controllers;
+namespace Jjdyo\MediaManager\Http\Controllers;
 
-use app\Http\Requests\Media\ListMediaRequest;
-use app\Http\Requests\Media\StoreMediaRequest;
-use app\Models\Media;
-use app\Services\MediaManager\MediaDirectoryScanner;
+use Illuminate\Routing\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
@@ -13,6 +10,10 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Intervention\Image\ImageManagerStatic as Image;
+use Jjdyo\MediaManager\Http\Requests\Media\ListMediaRequest;
+use Jjdyo\MediaManager\Http\Requests\Media\StoreMediaRequest;
+use Jjdyo\MediaManager\Models\Media;
+use Jjdyo\MediaManager\Services\MediaManager\MediaDirectoryScanner;
 
 class MediaController extends Controller
 {
