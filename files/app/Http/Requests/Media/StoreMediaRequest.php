@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Http\Requests\Media;
+
+use App\Services\MediaManager\HumanFileSize;
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreMediaRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return (bool) $this->user();
+    }
+
+    public function rules(): array
+    {
+        $maxBytes = HumanFileSize::parseToBytes(config('media-manager.max_file_size', '5MB'));
+
+        return [
+            'dir' => ['required', 'string'], // validated in controller against allowed roots + nesting
+            'file' => ['required', 'file', 'mimetypes:image/png,image/jpeg,image/webp,image/svg+xml', 'max:'.($maxBytes > 0 ? (int) ceil($maxBytes/1024) : 5120)],
+            // Optional custom filename; sanitized server-side
+            'filename' => ['nullable', 'string', 'max:255'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        $max = (string) config('media-manager.max_file_size', '5MB');
+        return [
+            'file.max' => "The image exceeds the maximum allowed size of {$max}.",
+            'file.mimetypes' => 'Unsupported image type. Allowed types: PNG, JPEG, WEBP, SVG.',
+            'file.required' => 'Please choose an image to upload.',
+        ];
+    }
+}
