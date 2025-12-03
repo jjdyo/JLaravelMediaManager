@@ -64,6 +64,7 @@ class MediaController extends Controller
         $user = $request->user();
         $dir = $this->normalizeAndValidateDir($request->string('dir')->toString());
         $this->authorizeDir($user, $dir, 'write');
+        $verbose = (bool) config('media-manager.verbose_logging', false);
 
         /** @var UploadedFile $file */
         $file = $request->file('file');
@@ -74,15 +75,17 @@ class MediaController extends Controller
         $duplicate = Media::where('sha256', $sha256)->where('disk', $disk)->first();
         if ($duplicate) {
             // Return a 409 with options for client to decide
-            Log::info('Media upload dedupe hit', [
-                'user_id' => optional($user)->id,
-                'dir' => $dir,
-                'disk' => $disk,
-                'duplicate_media_id' => $duplicate->id,
-                'duplicate_path' => $duplicate->path,
-                'mime' => $duplicate->mime,
-                'size_bytes' => $duplicate->size_bytes,
-            ]);
+            if ($verbose) {
+                Log::info('Media upload dedupe hit', [
+                    'user_id' => optional($user)->id,
+                    'dir' => $dir,
+                    'disk' => $disk,
+                    'duplicate_media_id' => $duplicate->id,
+                    'duplicate_path' => $duplicate->path,
+                    'mime' => $duplicate->mime,
+                    'size_bytes' => $duplicate->size_bytes,
+                ]);
+            }
             return response()->json([
                 'message' => 'Duplicate detected',
                 'duplicate' => $duplicate,
@@ -94,7 +97,9 @@ class MediaController extends Controller
             ], 409);
         }
 
-        $originalName = $file->getClientOriginalName() ?: $file->getClientOriginalName();
+        // Respect optional custom filename (base name only). Keep actual extension from upload to avoid mismatches.
+        $requestedName = trim((string) $request->input('filename', ''));
+        $originalName = $requestedName !== '' ? $requestedName : ($file->getClientOriginalName() ?: $file->getClientOriginalName());
         $ext = strtolower($file->getClientOriginalExtension());
         $safeBase = Str::slug(pathinfo($originalName, PATHINFO_FILENAME));
         if ($safeBase === '') { $safeBase = Str::random(8); }
@@ -152,17 +157,19 @@ class MediaController extends Controller
                     $estimatedDecode = (int) ($pixelCount * 4);
                     $estimatedPeak = (int) ($estimatedDecode * 1.5);
                     $projectedTotal = $currentUsage + $estimatedPeak;
-                    Log::info('Media thumbnail memory preflight', [
-                        'user_id' => optional($user)->id,
-                        'w' => $width, 'h' => $height, 'pixels' => $pixelCount,
-                        'size_bytes' => $size,
-                        'memory_limit' => $memLimitStr,
-                        'memory_limit_bytes' => $memLimit,
-                        'current_usage_bytes' => $currentUsage,
-                        'estimated_decode_bytes' => $estimatedDecode,
-                        'estimated_peak_bytes' => $estimatedPeak,
-                        'projected_total_bytes' => $projectedTotal,
-                    ]);
+                    if ($verbose) {
+                        Log::info('Media thumbnail memory preflight', [
+                            'user_id' => optional($user)->id,
+                            'w' => $width, 'h' => $height, 'pixels' => $pixelCount,
+                            'size_bytes' => $size,
+                            'memory_limit' => $memLimitStr,
+                            'memory_limit_bytes' => $memLimit,
+                            'current_usage_bytes' => $currentUsage,
+                            'estimated_decode_bytes' => $estimatedDecode,
+                            'estimated_peak_bytes' => $estimatedPeak,
+                            'projected_total_bytes' => $projectedTotal,
+                        ]);
+                    }
                     if ($memLimit > 0) {
                         // If projected usage exceeds 90% of limit, skip thumbnails to be safe
                         if ($projectedTotal > (int) floor($memLimit * 0.9)) {
@@ -183,13 +190,13 @@ class MediaController extends Controller
             }
             if ($pixelCount && $pixelCount > $maxPixels) {
                 $shouldThumb = false;
-                Log::info('Media thumbnail skipped due to pixel threshold', [
+                if ($verbose) Log::info('Media thumbnail skipped due to pixel threshold', [
                     'w' => $width, 'h' => $height, 'pixels' => $pixelCount, 'maxPixels' => $maxPixels,
                 ]);
             }
             if ($size > 0 && $size > $maxThumbFileSize) {
                 $shouldThumb = false;
-                Log::info('Media thumbnail skipped due to file size threshold', [
+                if ($verbose) Log::info('Media thumbnail skipped due to file size threshold', [
                     'size_bytes' => $size, 'max' => $maxThumbFileSize,
                 ]);
             }
@@ -220,11 +227,11 @@ class MediaController extends Controller
                     // If misconfigured or empty, skip safely
                     if (!empty($defs)) {
                         usort($defs, function($a, $b){ return $b['max'] <=> $a['max']; });
-
-                        $currentSourcePath = $file->getRealPath();
+                        // Start with the original image in memory and iteratively derive smaller ones
+                        $currentImage = Image::make($file->getRealPath());
                         foreach ($defs as $i => $d) {
-                            // Load from the current source path (original for the first, previous thumb afterwards)
-                            $work = Image::make($currentSourcePath);
+                            // Work on a clone to avoid mutating the source in-place before encoding
+                            $work = clone $currentImage;
                             // Apply orientation if EXIF present
                             try { $work->orientate(); } catch (\Throwable $e) { /* ignore */ }
                             $work->fit($d['w'], $d['h'], function($c){});
@@ -234,24 +241,23 @@ class MediaController extends Controller
                             Storage::disk($disk)->put($thumbRel, (string) $work->encode('jpg', $d['q']));
                             $thumbs[$d['key']] = $thumbRel;
 
-                            // For next iteration, derive from this just-created (smaller) file to lower memory footprint
-                            $currentSourcePath = Storage::disk($disk)->path($thumbRel);
-
-                            // Free image resource ASAP
-                            unset($work);
+                            // For next iteration, derive from this smaller image instance to lower memory footprint
+                            $currentImage = $work;
                         }
                     }
 
                     // Free probe image as well
                     unset($imgProbe);
                     $elapsedMs = (int) round((microtime(true) - $thumbStart) * 1000);
-                    Log::info('Media thumbnails generated', [
-                        'user_id' => optional($user)->id,
-                        'dir' => $dir,
-                        'path' => $storedPath,
-                        'sizes' => array_keys($thumbs),
-                        'elapsed_ms' => $elapsedMs,
-                    ]);
+                    if ($verbose) {
+                        Log::info('Media thumbnails generated', [
+                            'user_id' => optional($user)->id,
+                            'dir' => $dir,
+                            'path' => $storedPath,
+                            'sizes' => array_keys($thumbs),
+                            'elapsed_ms' => $elapsedMs,
+                        ]);
+                    }
                 } catch (\Throwable $e) {
                     Log::warning('Media thumbnail generation failed', [
                         'error' => $e->getMessage(),
@@ -344,7 +350,7 @@ class MediaController extends Controller
             return;
         }
 
-        if (!config('media-manager.enforce_spatie_permission', true)) return;
+        if (!config('media-manager.enforce_spatie_permission')) return;
 
         $rolesByDir = config('media-manager.permissions', []);
         $root = $dir ? explode('/', trim($dir, '/'))[0] : null;

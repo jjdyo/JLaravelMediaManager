@@ -36,6 +36,13 @@ return [
     'disk' => env('MEDIA_DISK', 'public'),
     'visibility' => 'public',
 
+    // Control verbosity of info-level logs during uploads/thumbnailing.
+    // Warnings and errors are always logged.
+    'verbose_logging' => env('MEDIA_VERBOSE_LOGGING', false),
+
+    // Allow uploading SVG images. SVGs can contain scripts; disable if untrusted.
+    'allow_svg' => env('MEDIA_ALLOW_SVG', true),
+
     // If false, role checking is disabled and all authenticated users can read & upload.
     // If true, role checking applies ONLY to write operations (upload, folder creation).
     // Reads/browsing are allowed for any authenticated user to enable reuse of existing media.

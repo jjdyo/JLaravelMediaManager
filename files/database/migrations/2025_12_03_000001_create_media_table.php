@@ -11,7 +11,7 @@ return new class extends Migration {
             $table->id();
             $table->string('disk')->default(config('media-manager.disk', 'public'));
             $table->string('dir');
-            $table->string('path')->unique(); // relative to disk
+            $table->string('path'); // relative to disk
             $table->string('original_name');
             $table->string('ext')->nullable();
             $table->string('mime');
@@ -25,6 +25,7 @@ return new class extends Migration {
             $table->timestamps();
 
             $table->index('dir');
+            $table->unique(['disk','path']);
         });
     }
 
