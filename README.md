@@ -115,5 +115,8 @@ Assets are published to `resources/js/vendor/media-manager`. If your Vite alias 
 ## Support & logging
 Check `storage/logs/laravel.log` for detailed upload and thumbnail logs.
 
+## Packagist
+[J-Laravel Media Manager](https://packagist.org/packages/jjdyo/j-laravel-media-manager)
+
 ## License
 MIT
